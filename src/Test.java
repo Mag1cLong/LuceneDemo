@@ -1,6 +1,5 @@
 import org.apache.commons.io.FileUtils;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
 import org.apache.lucene.document.Field.Store;
 import org.apache.lucene.index.*;
@@ -25,7 +24,11 @@ public class Test {
 //        numericRangeQuery();
 //        termQuery();
 //        booleanQuery();
-        queryParser();
+//        queryParser();
+        multiFieldQueryParser();
+//        deleteAllIndex();
+//        deleteIndexByQuery();
+//        updateIndex();
     }
 
     /**
@@ -40,7 +43,7 @@ public class Test {
         //Directory directory = new RAMDirectory();
 
         //指定一个标准分析器，对文档内容进行分析
-        Analyzer analyzer = new StandardAnalyzer();
+        Analyzer analyzer = new IKAnalyzer();
 
         //创建indexwriterCofig对象
         //第一个参数： Lucene的版本信息，可以选择对应的lucene版本也可以使用LATEST
@@ -79,7 +82,7 @@ public class Test {
 
             //文件内容
             String fileContent = FileUtils.readFileToString(file2);
-            //String fileContent = FileUtils.readFileToString(file2, "utf-8");
+//            String fileContent = FileUtils.readFileToString(file2, "utf-8");
             //文件内容域
             Field fileContentField = new TextField("fileContent", fileContent, Store.YES);
 
@@ -150,7 +153,7 @@ public class Test {
         IndexSearcher indexSearcher = new IndexSearcher(indexReader);
         //创建一个TermQuery（精准查询）对象，指定查询的域与查询的关键词
         //创建查询
-        Query query = new TermQuery(new Term("fileName", "test.txt"));
+        Query query = new TermQuery(new Term("fileName", "习"));
         //执行查询
         //第一个参数是查询对象，第二个参数是查询结果返回的最大值
         TopDocs topDocs = indexSearcher.search(query, 10);
@@ -245,8 +248,8 @@ public class Test {
         //创建一个布尔查询对象
         BooleanQuery query = new BooleanQuery();
         //创建第一个查询条件
-        Query query1 = new TermQuery(new Term("fileName", "test.txt"));
-        Query query2 = new TermQuery(new Term("fileName", "txt"));
+        Query query1 = new TermQuery(new Term("fileName", "习"));
+        Query query2 = new TermQuery(new Term("fileName", "特"));
         //组合查询条件
         query.add(query1, BooleanClause.Occur.MUST);
         query.add(query2, BooleanClause.Occur.SHOULD);
@@ -295,9 +298,10 @@ public class Test {
         //创建queryparser对象
         //第一个参数默认搜索的域
         //第二个参数就是分析器对象
-        QueryParser queryParser = new QueryParser("fileName", new IKAnalyzer());
+//        QueryParser queryParser = new QueryParser("fileName", new IKAnalyzer());
+        QueryParser queryParser = new QueryParser("fileContent", new IKAnalyzer());
         //使用默认的域,这里用的是语法，下面会详细讲解一下
-        Query query = queryParser.parse("test.txt");
+        Query query = queryParser.parse("总统");
         //不使用默认的域，可以自己指定域
 //        Query query = queryParser.parse("fileContent:apache");
         //执行查询
@@ -346,7 +350,7 @@ public class Test {
         String[] fields = {"fileName", "fileContent"};
         //创建一个MulitFiledQueryParser对象
         MultiFieldQueryParser queryParser = new MultiFieldQueryParser(fields, new IKAnalyzer());
-        Query query = queryParser.parse("apache");
+        Query query = queryParser.parse("中国");
         System.out.println(query);
         //执行查询
 
@@ -377,4 +381,57 @@ public class Test {
         //关闭indexreader对象
         indexReader.close();
     }
+
+    /**
+     * 删除全部索引
+     * @throws Exception
+     */
+    static void deleteAllIndex() throws Exception{
+        Directory directory = FSDirectory.open(new File("d:testIndex"));
+        Analyzer analyzer = new IKAnalyzer();
+        IndexWriterConfig config = new IndexWriterConfig(Version.LATEST, analyzer);
+        IndexWriter indexWriter = new IndexWriter(directory, config);
+        //删除全部索引
+        indexWriter.deleteAll();
+        //关闭indexwriter
+        indexWriter.close();
+    }
+
+    /**
+     * 根据查询条件删除索引
+     * @throws Exception
+     */
+    static void deleteIndexByQuery() throws Exception{
+        Directory directory = FSDirectory.open(new File("d:testIndex"));
+        Analyzer analyzer = new IKAnalyzer();
+        IndexWriterConfig config = new IndexWriterConfig(Version.LATEST, analyzer);
+        IndexWriter indexWriter = new IndexWriter(directory, config);
+        //创建一个查询条件
+        Query query = new TermQuery(new Term("fileContent", "apache"));
+        //根据查询条件删除
+        indexWriter.deleteDocuments(query);
+        //关闭indexwriter
+        indexWriter.close();
+    }
+
+    /**
+     * 修改索引库
+     * @throws Exception
+     */
+    static void updateIndex() throws Exception{
+        Directory directory = FSDirectory.open(new File("d:testIndex"));
+        Analyzer analyzer = new IKAnalyzer();
+        IndexWriterConfig config = new IndexWriterConfig(Version.LATEST, analyzer);
+        IndexWriter indexWriter = new IndexWriter(directory, config);
+        //创建一个Document对象
+        Document document = new Document();
+        //向document对象中添加域。
+        //不同的document可以有不同的域，同一个document可以有相同的域。
+        document.add(new TextField("fileXXX", "要更新的文档", Store.YES));
+        document.add(new TextField("contentYYY", "简介 Lucene 是一个基于 Java 的全文信息检索工具包。", Store.YES));
+        indexWriter.updateDocument(new Term("fileName", "apache"), document);
+        //关闭indexWriter
+        indexWriter.close();
+    }
+
 }
